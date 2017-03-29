@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# the script random sort the current file name into two
+# using the -sha256 to digest a unique message
+# NR means number of row and NF means number filds and $NF means the field value
+
+for u in *;do
+	sum = $(echo $u | openssl dgst -sha256)
+	echo "$sum $u"
+done | sort | awk '{print $NF};!(NR%2){print "";}'
