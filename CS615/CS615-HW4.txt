@@ -1,0 +1,419 @@
+Tianpei Luo
+CS615 HW4
+
+
+A document for setting up a caching only name server and tcpdump testing
+
+
+DNS server set up steps: Set up a resolving ,caching name server 
+	1. Run two instance by using the OS - ubuntu as the host and client.
+	2. Using the BIND name server software(BIND9) to make this instance as a caching only name server.
+	3. Install the BIND9 package : sudo apt-get update
+		sudo apt-get install bind9 bind9utils bind9-doc
+The way to configure Bind to act as a caching DNS server:
+	1. Move into the directory that keep the configuration file: 
+		cd /ect/bind
+	2. Open the file “named.conf.option” with a text editor: 
+		vim named.conf.option
+	3. First, we need to set up an access control list to avoid malicious DNS query,this kind of 
+	attack called DNS amplification attack(ddos) which using DNS server to turn a small query into
+	 a much larger payload directed at the target network:
+	acl clients{
+       		52.55.9.73;
+        	localhosts;
+        	localnets;
+	};
+	4. Configure some properties in the option:
+         	 recursion yes;
+        	 allow-query { clients;}; 
+	5. Save the file and check the configuration file is correct or not by typing the command :sudo named-checkconf 
+	6. Change the file “/etc/resolv.conf” and add the name server as the localhost.
+Client configuration:
+	1. We can configure the client machine to use the caching name server that we just set up.
+	2. Login the other instance that we created which ip address is in the access control list.
+	3. Change the setting of the file “/etc/resolv.conf” and add an entry with the nameserver and the ip address of the NS.Exp: The ip address of my name server is 54.205.226.33 then I added a entry in the resolv.conf file like this :
+		nameserver 54.205.226.33
+	4. Save the file and the configuration of client side is done.
+
+
+Tcpdump exercise:
+	On the DNS server:
+
+	$ telnet www.yahoo.com 80
+	GET / HTTP/1.1
+	Host: www.yahoo.com
+
+	1.Track down the packets in your tcpdump referring to the DNS query from your DNS server to one of the root servers,
+	 then to the various DNS servers before the DNS information is returned to your server by one of Yahoo's authoritative DNS servers.
+
+	First we use command : 
+	sudo tcpdump -w tcpdump.out port not 22 & 
+	this help us to track down the packets information. after trying to connect the server of yahoo, we found that it gave us a info about the server has been redirected.
+		HTTP/1.1 301 Redirect
+		Date: Mon, 20 Mar 2017 15:35:11 GMT
+		Via: https/1.1 ir9.fp.bf1.yahoo.com (ApacheTrafficServer)
+		Server: ATS
+		Location: https://www.yahoo.com/
+		Content-Type: text/html
+		Content-Language: en
+		Cache-Control: no-store, no-cache
+		Connection: keep-alive
+		Content-Length: 304
+
+
+		And the location is https://www.yahoo.com/
+	Now we could look at the file of tcpdump.out, search the information about the port 53 which is the DNS query :sudo tcpdump -t -n -r tcpdump.out udp port 53
+		we get the message like this :
+		reading from file tcpdump.out, link-type EN10MB (Ethernet)
+	IP 172.31.3.139.29193 > 192.5.5.241.53: 42908% [1au] A? www.yahoo.com. (42)	
+	IP 172.31.3.139.8230 > 192.5.5.241.53: 46477% [1au] NS? . (28)
+	IP 172.31.3.139.14531 > 192.5.5.241.53: 40607% [1au] AAAA? www.yahoo.com. (42)
+	IP 192.5.5.241.53 > 172.31.3.139.29193: 42908- 0/15/16 (865)
+	IP 192.5.5.241.53 > 172.31.3.139.8230: 46477*- 14/0/27 NS b.root-servers.net., NS m.root-servers.net., NS e.root-servers.net., NS d.root-servers.net., NS k.root-servers.net., NS i.root-servers.net., NS f.root-servers.net., NS 		h.root-servers.net., NS g.root-servers.net., NS l.root-servers.net., NS a.root-servers.net., NS j.root-servers.net., NS c.root-servers.net., RRSIG (1097)
+	IP 192.5.5.241.53 > 172.31.3.139.14531: 40607- 0/15/16 (865)
+	IP 172.31.3.139.64922 > 192.33.14.30.53: 33806% [1au] A? www.yahoo.com. (42)
+	IP 172.31.3.139.36146 > 192.33.14.30.53: 42276% [1au] AAAA? www.yahoo.com. (42)
+	IP 192.33.14.30.53 > 172.31.3.139.64922: 33806- 0/9/9 (781)
+	IP 172.31.3.139.52665 > 119.160.247.124.53: 7680% [1au] A? www.yahoo.com. (42)
+	IP 192.33.14.30.53 > 172.31.3.139.36146: 42276- 0/9/9 (781)
+	IP 172.31.3.139.30661 > 119.160.247.124.53: 20904% [1au] AAAA? www.yahoo.com. (42)
+	IP 119.160.247.124.53 > 172.31.3.139.52665: 7680*- 1/4/3 CNAME fd-fp3.wg1.b.yahoo.com. (187)
+	IP 119.160.247.124.53 > 172.31.3.139.30661: 20904*- 1/4/3 CNAME fd-fp3.wg1.b.yahoo.com. (187)
+	IP 172.31.3.139.52224 > 198.41.0.4.53: 41331% [1au] DS? com. (32)
+	IP 198.41.0.4.53 > 172.31.3.139.52224: 41331*- 2/0/1 DS, RRSIG (367)
+	IP 172.31.3.139.1828 > 199.7.91.13.53: 26915% [1au] DS? yahoo.com. (38)
+	IP 199.7.91.13.53 > 172.31.3.139.1828: 26915- 0/15/16 (861)
+	IP 172.31.3.139.3829 > 192.31.80.30.53: 29605% [1au] DS? yahoo.com. (38)
+	IP 192.31.80.30.53 > 172.31.3.139.3829: 29605*- 0/6/1 (759)
+	IP 172.31.3.139.48105 > 192.26.92.30.53: 47550% [1au] DNSKEY? com. (32)
+	IP 192.26.92.30.53 > 172.31.3.139.48105: 47550*- 3/0/1 DNSKEY, DNSKEY, RRSIG (743)
+	IP 172.31.3.139.47816 > 98.138.11.157.53: 2290% [1au] A? fd-fp3.wg1.b.yahoo.com. (51)
+	IP 172.31.3.139.50315 > 98.138.11.157.53: 64400% [1au] AAAA? fd-fp3.wg1.b.yahoo.com. (51)
+	IP 98.138.11.157.53 > 172.31.3.139.50315: 64400- 0/4/3 (169)
+	IP 172.31.3.139.33144 > 68.180.130.15.53: 9445% [1au] AAAA? fd-fp3.wg1.b.yahoo.com. (51)
+	IP 172.31.3.139.57186 > 192.12.94.30.53: 41782% [1au] A? yf3.a1.b.yahoo.net. (47)
+	IP 172.31.3.139.54560 > 192.12.94.30.53: 4846% [1au] AAAA? yf3.a1.b.yahoo.net. (47)
+	IP 98.138.11.157.53 > 172.31.3.139.47816: 2290- 0/4/3 (169)
+	IP 172.31.3.139.34111 > 192.12.94.30.53: 31002% [1au] A? yf4.a1.b.yahoo.net. (47)
+	IP 68.180.130.15.53 > 172.31.3.139.33144: 9445*- 1/0/1 AAAA 2001:4998:58:c02::a9 (79)
+	IP 192.12.94.30.53 > 172.31.3.139.57186: 41782- 0/9/9 (795)
+	IP 172.31.3.139.16066 > 192.12.94.30.53: 52645% [1au] AAAA? yf4.a1.b.yahoo.net. (47)
+	IP 192.12.94.30.53 > 172.31.3.139.54560: 4846- 0/9/9 (795)
+	IP 192.12.94.30.53 > 172.31.3.139.34111: 31002- 0/9/9 (795)
+	IP 172.31.3.139.61596 > 68.180.130.15.53: 42059% [1au] A? fd-fp3.wg1.b.yahoo.com. (51)
+	IP 192.12.94.30.53 > 172.31.3.139.16066: 52645- 0/9/9 (795)
+	IP 172.31.3.139.9803 > 68.142.255.16.53: 50613% [1au] A? yf3.a1.b.yahoo.net. (47)
+	IP 172.31.3.139.10404 > 68.142.255.16.53: 10980% [1au] AAAA? yf3.a1.b.yahoo.net. (47)
+	IP 68.180.130.15.53 > 172.31.3.139.61596: 42059*- 2/0/1 A 98.139.183.24, A 98.139.180.149 (83)
+	IP 68.142.255.16.53 > 172.31.3.139.9803: 50613- 0/2/3 (124)
+	IP 172.31.3.139.60075 > 68.142.255.16.53: 32120% [1au] A? yf4.a1.b.yahoo.net. (47)
+	IP 172.31.3.139.6219 > 68.142.255.16.53: 47898% [1au] AAAA? yf4.a1.b.yahoo.net. (47)
+	IP 68.142.255.16.53 > 172.31.3.139.10404: 10980- 0/2/3 (124)
+	IP 68.142.255.16.53 > 172.31.3.139.60075: 32120- 0/2/3 (124)
+	IP 68.142.255.16.53 > 172.31.3.139.6219: 47898- 0/2/3 (124)
+	IP 172.31.3.139.3905 > 68.142.254.15.53: 19887% [1au] A? yf3.a1.b.yahoo.net. (47)
+	IP 172.31.3.139.54817 > 68.142.254.15.53: 10243% [1au] AAAA? yf3.a1.b.yahoo.net. (47)
+	IP 68.142.254.15.53 > 172.31.3.139.3905: 19887*- 1/0/1 A 68.180.130.15 (63)
+	IP 68.142.254.15.53 > 172.31.3.139.54817: 10243*- 0/1/1 (117)
+	IP 172.31.3.139.3218 > 68.142.254.15.53: 56806% [1au] A? yf4.a1.b.yahoo.net. (47)
+	IP 172.31.3.139.59236 > 68.142.254.15.53: 37593% [1au] AAAA? yf4.a1.b.yahoo.net. (47)
+	IP 68.142.254.15.53 > 172.31.3.139.3218: 56806*- 1/0/1 A 68.180.130.15 (63)
+	IP 68.142.254.15.53 > 172.31.3.139.59236: 37593*- 0/1/1 (117)
+		this one told the IP address of www.yahoo.com
+	
+	2.Identify the 3-way handshake that initiates the connection from your DNS server to port 80 on Yahoo's webserver, the packets that are being sent back and forth and finally the closing of the connection.
+	Using the command :tcpdump -n -r tcpdump.out tcp port 80
+	reading from file tcpdump.out, link-type EN10MB (Ethernet)
+	16:03:46.799146 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [S], seq 2171014831, win 29200, options [mss 1460,sackOK,TS val 21313713 ecr 0,nop,wscale 7], length 0
+	16:03:46.815670 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [S.], seq 2447925377, ack 2171014832, win 8192, options [mss 1460,nop,nop,sackOK,nop,wscale 8], length 0
+	16:03:46.815694 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [.], ack 1, win 229, length 0	
+	16:04:00.908606 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [P.], seq 1:17, ack 1, win 229, length 16
+	16:04:00.939364 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [.], ack 17, win 58, length 0
+	16:04:00.939387 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [.], seq 1:1461, ack 17, win 58, length 1460
+	16:04:00.939405 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [.], ack 1461, win 251, length 0
+	16:04:00.956135 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [.], seq 1461:2921, ack 17, win 58, length 1460
+	16:04:00.956151 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [.], ack 2921, win 274, length 0
+	16:04:00.957844 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [.], seq 2921:4381, ack 17, win 58, length 1460
+	16:04:00.957859 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [.], ack 4381, win 297, length 0
+	16:04:00.984198 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [.], seq 4381:5841, ack 17, win 58, length 1460
+	16:04:00.984256 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [.], ack 5841, win 320, length 0
+	16:04:00.984412 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [FP.], seq 5841:6499, ack 17, win 58, length 658
+	16:04:00.985722 IP 172.31.3.139.43810 > 98.139.183.24.80: Flags [F.], seq 17, ack 6500, win 343, length 0
+	16:04:01.002295 IP 98.139.183.24.80 > 172.31.3.139.43810: Flags [.], ack 18, win 58, length 0
+	The top 3 is the 3-way handshake.
+	
+	On the client host:
+	$ telnet www.tumblr.com 80
+	GET / HTTP/1.0
+	1.Same with the command before :sudo tcpdump -w tcpdump.out port not 22 & , using this to track down the packet.
+	Using sudo tcpdump -t -n -r tcpdump.out udp port 53 to look up the DNS query, it shows that our client query send to our name server.
+	IP 172.31.60.44.50688 > 54.205.226.33.53: 42469+ A? www.tumblr.com. (32)
+	IP 172.31.60.44.50688 > 54.205.226.33.53: 48629+ AAAA? www.tumblr.com. (32)
+	IP 54.205.226.33.53 > 172.31.60.44.50688: 48629 1/1/0 CNAME e2p-v4.gycs.b.yahoodns.net. (139)
+	IP 54.205.226.33.53 > 172.31.60.44.50688: 42469 5/4/2 CNAME e2p-v4.gycs.b.yahoodns.net., A 69.147.82.56, A 69.147.92.13, A 69.147.92.14, A 69.147.82.57 (257)
+	2.On your DNS server: Track down the packets in your tcpdump referring to the DNS query from your DNS server to one of the root servers, then to the various DNS servers before the DNS information is returned to your server by one 	of Tumblr's authoritative DNS servers.
+	Type the command sudo tcpdump -w tcpdump.out port not 22 & on the server side to track down the DNS query. And do the same thing again on the client side.
+	Before that we need to delete the cache by typing this :
+	sudo rndc flush
+	sudo rndc reload
+	
+	Now we could use command :tcpdump -t -n -r tcpdump.out udp port 53 
+	And get the DNS query info:
+IP 52.55.9.73.47050 > 172.31.3.139.53: 40530+ A? www.tumblr.com. (32)
+IP 52.55.9.73.47050 > 172.31.3.139.53: 45776+ AAAA? www.tumblr.com. (32)
+IP 172.31.3.139.12718 > 128.63.2.53.53: 58768% [1au] A? www.tumblr.com. (43)
+IP 172.31.3.139.39648 > 128.63.2.53.53: 55257% [1au] AAAA? www.tumblr.com. (43)
+IP 172.31.3.139.43800 > 128.63.2.53.53: 58873% [1au] NS? . (28)
+IP 172.31.3.139.24537 > 199.7.83.42.53: 38150% [1au] A? www.tumblr.com. (43)
+IP 172.31.3.139.23749 > 199.7.83.42.53: 40588% [1au] NS? . (28)
+IP 172.31.3.139.33930 > 199.7.83.42.53: 17008% [1au] AAAA? www.tumblr.com. (43)
+IP 199.7.83.42.53 > 172.31.3.139.24537: 38150- 0/15/16 (866)
+IP 199.7.83.42.53 > 172.31.3.139.23749: 40588*- 14/0/27 NS a.root-servers.net., NS b.root-servers.net., NS c.root-servers.net., NS d.root-servers.net., NS e.root-servers.net., NS f.root-servers.net., NS g.root-servers.net., NS h.root-servers.net., NS i.root-servers.net., NS j.root-servers.net., NS k.root-servers.net., NS l.root-servers.net., NS m.root-servers.net., RRSIG (1097)
+IP 172.31.3.139.9145 > 192.42.93.30.53: 18892% [1au] A? www.tumblr.com. (43)
+IP 199.7.83.42.53 > 172.31.3.139.33930: 17008- 0/15/16 (866)
+IP 192.42.93.30.53 > 172.31.3.139.9145: 18892- 0/14/15 (1000)
+IP 172.31.3.139.10258 > 192.42.93.30.53: 49357% [1au] AAAA? www.tumblr.com. (43)
+IP 192.42.93.30.53 > 172.31.3.139.10258: 49357- 0/14/15 (1000)
+IP 172.31.3.139.34501 > 119.160.247.124.53: 12763% [1au] A? www.tumblr.com. (43)
+IP 172.31.3.139.32811 > 192.58.128.30.53: 24650% [1au] A? ns1.p03.dynect.net. (47)
+IP 172.31.3.139.2517 > 192.58.128.30.53: 45714% [1au] AAAA? ns1.p03.dynect.net. (47)
+IP 172.31.3.139.17254 > 192.58.128.30.53: 59621% [1au] A? ns2.p03.dynect.net. (47)
+IP 172.31.3.139.54138 > 192.58.128.30.53: 52743% [1au] AAAA? ns2.p03.dynect.net. (47)
+IP 172.31.3.139.16484 > 192.58.128.30.53: 63272% [1au] A? ns3.p03.dynect.net. (47)
+IP 172.31.3.139.6220 > 192.58.128.30.53: 43284% [1au] AAAA? ns3.p03.dynect.net. (47)
+IP 172.31.3.139.54534 > 192.58.128.30.53: 10628% [1au] A? ns4.p03.dynect.net. (47)
+IP 172.31.3.139.5299 > 192.58.128.30.53: 23246% [1au] AAAA? ns4.p03.dynect.net. (47)
+IP 172.31.3.139.16497 > 121.101.144.139.53: 20234% [1au] AAAA? www.tumblr.com. (43)
+IP 172.31.3.139.65050 > 192.58.128.30.53: 63975% [1au] NS? . (28)
+IP 192.58.128.30.53 > 172.31.3.139.2517: 45714- 0/15/16 (867)
+IP 192.58.128.30.53 > 172.31.3.139.54534: 10628- 0/15/16 (867)
+IP 192.58.128.30.53 > 172.31.3.139.16484: 63272- 0/15/16 (867)
+IP 192.58.128.30.53 > 172.31.3.139.54138: 52743- 0/15/16 (867)
+IP 192.58.128.30.53 > 172.31.3.139.32811: 24650- 0/15/16 (867)
+IP 172.31.3.139.12792 > 192.55.83.30.53: 21269% [1au] AAAA? ns1.p03.dynect.net. (47)
+IP 192.58.128.30.53 > 172.31.3.139.17254: 59621- 0/15/16 (867)
+IP 172.31.3.139.18752 > 192.55.83.30.53: 44721% [1au] A? ns4.p03.dynect.net. (47)
+IP 172.31.3.139.5403 > 192.55.83.30.53: 24599% [1au] A? ns3.p03.dynect.net. (47)
+IP 172.31.3.139.2596 > 192.55.83.30.53: 54827% [1au] AAAA? ns2.p03.dynect.net. (47)
+IP 192.58.128.30.53 > 172.31.3.139.6220: 43284- 0/15/16 (867)
+IP 172.31.3.139.39604 > 192.55.83.30.53: 8954% [1au] A? ns2.p03.dynect.net. (47)
+IP 172.31.3.139.51153 > 192.55.83.30.53: 21159% [1au] A? ns1.p03.dynect.net. (47)
+IP 172.31.3.139.38545 > 192.55.83.30.53: 48149% [1au] AAAA? ns3.p03.dynect.net. (47)
+IP 192.58.128.30.53 > 172.31.3.139.65050: 63975*- 14/0/27 NS a.root-servers.net., NS b.root-servers.net., NS c.root-servers.net., NS d.root-servers.net., NS e.root-servers.net., NS f.root-servers.net., NS g.root-servers.net., NS h.root-servers.net., NS i.root-servers.net., NS j.root-servers.net., NS k.root-servers.net., NS l.root-servers.net., NS m.root-servers.net., RRSIG (1097)
+IP 192.58.128.30.53 > 172.31.3.139.5299: 23246- 0/15/16 (867)
+IP 172.31.3.139.7529 > 192.55.83.30.53: 35897% [1au] AAAA? ns4.p03.dynect.net. (47)
+IP 192.55.83.30.53 > 172.31.3.139.18752: 44721- 0/11/13 (933)
+IP 172.31.3.139.33861 > 208.78.71.136.53: 65129% [1au] A? ns4.p03.dynect.net. (47)
+IP 208.78.71.136.53 > 172.31.3.139.33861: 65129*- 1/7/1 A 204.13.251.3 (212)
+IP 192.55.83.30.53 > 172.31.3.139.38545: 48149- 0/11/13 (933)
+IP 172.31.3.139.36112 > 204.13.251.136.53: 145% [1au] AAAA? ns3.p03.dynect.net. (47)
+IP 192.55.83.30.53 > 172.31.3.139.39604: 8954- 0/11/13 (933)
+IP 204.13.251.136.53 > 172.31.3.139.36112: 145*- 1/7/1 AAAA 2001:500:94:1::3 (224)
+IP 172.31.3.139.63019 > 204.13.251.136.53: 17678% [1au] A? ns2.p03.dynect.net. (47)
+IP 192.55.83.30.53 > 172.31.3.139.2596: 54827- 0/11/13 (933)
+IP 172.31.3.139.26178 > 108.59.165.1.53: 13020% [1au] AAAA? ns2.p03.dynect.net. (47)
+IP 192.55.83.30.53 > 172.31.3.139.12792: 21269- 0/11/13 (933)
+IP 172.31.3.139.60412 > 108.59.165.1.53: 46513% [1au] AAAA? ns1.p03.dynect.net. (47)
+IP 204.13.251.136.53 > 172.31.3.139.63019: 17678*- 1/7/1 A 204.13.250.3 (212)
+IP 108.59.165.1.53 > 172.31.3.139.26178: 13020*- 0/1/1 (131)
+IP 108.59.165.1.53 > 172.31.3.139.60412: 46513*- 1/7/13 AAAA 2001:500:90:1::3 (476)
+IP 192.55.83.30.53 > 172.31.3.139.7529: 35897- 0/11/13 (933)
+IP 192.55.83.30.53 > 172.31.3.139.5403: 24599- 0/11/13 (933)
+IP 172.31.3.139.41123 > 204.13.250.136.53: 9172% [1au] AAAA? ns4.p03.dynect.net. (47)
+IP 172.31.3.139.5809 > 204.13.250.136.53: 34697% [1au] A? ns3.p03.dynect.net. (47)
+IP 192.55.83.30.53 > 172.31.3.139.51153: 21159- 0/11/13 (933)
+IP 172.31.3.139.43672 > 204.13.250.136.53: 27464% [1au] A? ns1.p03.dynect.net. (47)
+IP 204.13.250.136.53 > 172.31.3.139.41123: 9172*- 0/1/1 (131)
+IP 204.13.250.136.53 > 172.31.3.139.5809: 34697*- 1/7/1 A 208.78.71.3 (212)
+IP 204.13.250.136.53 > 172.31.3.139.43672: 27464*- 1/7/1 A 208.78.70.3 (212)
+IP 119.160.247.124.53 > 172.31.3.139.34501: 12763*- 1/4/3 CNAME e2p-v4.gycs.b.yahoodns.net. (204)
+IP 172.31.3.139.64930 > 192.5.5.241.53: 31368% [1au] DS? com. (32)
+IP 192.5.5.241.53 > 172.31.3.139.64930: 31368*- 2/0/1 DS, RRSIG (367)
+IP 172.31.3.139.58218 > 198.41.0.4.53: 51996% [1au] DS? tumblr.com. (39)
+IP 198.41.0.4.53 > 172.31.3.139.58218: 51996- 0/15/16 (862)
+IP 172.31.3.139.37504 > 192.33.14.30.53: 9784% [1au] DS? tumblr.com. (39)
+IP 192.33.14.30.53 > 172.31.3.139.37504: 9784*- 0/6/1 (760)
+IP 172.31.3.139.15523 > 192.54.112.30.53: 12520% [1au] DNSKEY? com. (32)
+IP 192.54.112.30.53 > 172.31.3.139.15523: 12520*- 3/0/1 DNSKEY, DNSKEY, RRSIG (743)
+IP 172.31.3.139.39100 > 192.35.51.30.53: 39743% [1au] A? e2p-v4.gycs.b.yahoodns.net. (55)
+IP 192.35.51.30.53 > 172.31.3.139.39100: 39743- 0/9/9 (803)
+IP 172.31.3.139.48867 > 68.180.131.16.53: 54472% [1au] A? e2p-v4.gycs.b.yahoodns.net. (55)
+IP 68.180.131.16.53 > 172.31.3.139.48867: 54472- 0/4/3 (179)
+IP 172.31.3.139.58287 > 192.41.162.30.53: 17532% [1au] A? yf1.yahoo.com. (42)
+IP 172.31.3.139.38975 > 192.41.162.30.53: 18824% [1au] AAAA? yf1.yahoo.com. (42)
+IP 172.31.3.139.55923 > 192.41.162.30.53: 652% [1au] A? yf3.a1.b.yahoo.net. (47)
+IP 172.31.3.139.12470 > 192.41.162.30.53: 36974% [1au] AAAA? yf3.a1.b.yahoo.net. (47)
+IP 172.31.3.139.33717 > 192.41.162.30.53: 35187% [1au] A? yf2.yahoo.com. (42)
+IP 172.31.3.139.61413 > 192.41.162.30.53: 61262% [1au] AAAA? yf2.yahoo.com. (42)
+IP 172.31.3.139.65060 > 192.41.162.30.53: 59585% [1au] A? yf4.a1.b.yahoo.net. (47)
+IP 172.31.3.139.22587 > 192.41.162.30.53: 20701% [1au] AAAA? yf4.a1.b.yahoo.net. (47)
+IP 192.41.162.30.53 > 172.31.3.139.58287: 17532- 0/9/9 (781)
+IP 192.41.162.30.53 > 172.31.3.139.38975: 18824- 0/9/9 (781)
+IP 192.41.162.30.53 > 172.31.3.139.55923: 652- 0/9/9 (795)
+IP 192.41.162.30.53 > 172.31.3.139.12470: 36974- 0/9/9 (795)
+IP 172.31.3.139.30328 > 203.84.221.53.53: 26163% [1au] A? yf1.yahoo.com. (42)
+IP 192.41.162.30.53 > 172.31.3.139.33717: 35187- 0/9/9 (781)
+IP 192.41.162.30.53 > 172.31.3.139.61413: 61262- 0/9/9 (781)
+IP 192.41.162.30.53 > 172.31.3.139.65060: 59585- 0/9/9 (795)
+IP 172.31.3.139.62181 > 203.84.221.53.53: 10178% [1au] AAAA? yf1.yahoo.com. (42)
+IP 192.41.162.30.53 > 172.31.3.139.22587: 20701- 0/9/9 (795)
+IP 172.31.3.139.5598 > 203.84.221.53.53: 40430% [1au] A? yf3.a1.b.yahoo.net. (47)
+IP 172.31.3.139.9254 > 203.84.221.53.53: 45216% [1au] AAAA? yf3.a1.b.yahoo.net. (47)
+IP 172.31.3.139.5569 > 203.84.221.53.53: 31446% [1au] A? yf2.yahoo.com. (42)
+IP 172.31.3.139.24102 > 203.84.221.53.53: 48586% [1au] AAAA? yf2.yahoo.com. (42)
+IP 172.31.3.139.11996 > 203.84.221.53.53: 20083% [1au] A? yf4.a1.b.yahoo.net. (47)
+IP 172.31.3.139.28089 > 203.84.221.53.53: 14001% [1au] AAAA? yf4.a1.b.yahoo.net. (47)
+IP 203.84.221.53.53 > 172.31.3.139.5598: 40430- 0/2/3 (124)
+IP 203.84.221.53.53 > 172.31.3.139.24102: 48586*- 0/1/1 (103)
+IP 203.84.221.53.53 > 172.31.3.139.62181: 10178*- 0/1/1 (103)
+IP 203.84.221.53.53 > 172.31.3.139.28089: 14001- 0/2/3 (124)
+IP 203.84.221.53.53 > 172.31.3.139.30328: 26163*- 1/5/9 A 68.142.254.15 (312)
+IP 172.31.3.139.49860 > 68.142.254.15.53: 62053% [1au] A? yf3.a1.b.yahoo.net. (47)
+IP 172.31.3.139.64953 > 68.142.254.15.53: 62941% [1au] A? e2p-v4.gycs.b.yahoodns.net. (55)
+IP 172.31.3.139.28073 > 68.142.254.15.53: 3128% [1au] AAAA? yf4.a1.b.yahoo.net. (47)
+IP 68.142.254.15.53 > 172.31.3.139.49860: 62053*- 1/0/1 A 68.180.130.15 (63)
+IP 68.142.254.15.53 > 172.31.3.139.64953: 62941*- 4/0/1 A 69.147.92.14, A 69.147.92.13, A 69.147.82.56, A 69.147.82.57 (119)
+IP 68.142.254.15.53 > 172.31.3.139.28073: 3128*- 0/1/1 (117)
+IP 203.84.221.53.53 > 172.31.3.139.11996: 20083- 0/2/3 (124)
+IP 172.31.3.139.47717 > 192.228.79.201.53: 12396% [1au] DS? net. (32)
+IP 172.31.3.139.28813 > 68.142.254.15.53: 56079% [1au] A? yf4.a1.b.yahoo.net. (47)
+IP 68.142.254.15.53 > 172.31.3.139.28813: 56079*- 1/0/1 A 68.180.130.15 (63)
+IP 203.84.221.53.53 > 172.31.3.139.9254: 45216- 0/2/3 (124)
+IP 172.31.3.139.62939 > 68.142.254.15.53: 55456% [1au] AAAA? yf3.a1.b.yahoo.net. (47)
+IP 68.142.254.15.53 > 172.31.3.139.62939: 55456*- 0/1/1 (117)
+IP 203.84.221.53.53 > 172.31.3.139.5569: 31446*- 1/5/9 A 68.180.130.15 (312)
+IP 192.228.79.201.53 > 172.31.3.139.47717: 12396*- 2/0/1 DS, RRSIG (367)
+IP 172.31.3.139.34300 > 192.203.230.10.53: 13338% [1au] DS? yahoodns.net. (41)
+IP 192.203.230.10.53 > 172.31.3.139.34300: 13338- 0/15/16 (861)
+IP 172.31.3.139.48922 > 192.12.94.30.53: 6848% [1au] DS? yahoodns.net. (41)
+IP 192.12.94.30.53 > 172.31.3.139.48922: 6848*- 0/6/1 (762)
+IP 172.31.3.139.31146 > 192.31.80.30.53: 11786% [1au] DNSKEY? net. (32)
+IP 192.31.80.30.53 > 172.31.3.139.31146: 11786*- 3/0/1 DNSKEY, DNSKEY, RRSIG (743)
+IP 172.31.3.139.53 > 52.55.9.73.47050: 40530 5/4/0 CNAME e2p-v4.gycs.b.yahoodns.net., A 69.147.82.57, A 69.147.82.56, A 69.147.92.13, A 69.147.92.14 (225)
+IP 172.31.3.139.54864 > 119.160.247.124.53: 10531% [1au] AAAA? www.tumblr.com. (43)
+IP 119.160.247.124.53 > 172.31.3.139.54864: 10531*- 1/4/3 CNAME e2p-v4.gycs.b.yahoodns.net. (204)
+IP 172.31.3.139.22507 > 68.180.130.15.53: 61357% [1au] AAAA? e2p-v4.gycs.b.yahoodns.net. (55)
+IP 68.180.130.15.53 > 172.31.3.139.22507: 61357*- 0/1/1 (125)
+IP 172.31.3.139.53 > 52.55.9.73.47050: 45776 1/1/0 CNAME e2p-v4.gycs.b.yahoodns.net. (139)
+
+
+	3.on the DNS server, perform a reverse host lookup (PTR) for a record not yet in your DNS server's cache; track down in your tcpdump all relevant DNS queries required to retrieve the result. Clearly identify which name servers you are communicating with and who operates them.
+	I chose twitch.tv and it IP address is 50.112.196.159
+	TYPE : host 50.112.196.159 and this perform a reverse host lookup. It shows that :
+	159.196.112.50.in-addr.arpa domain name pointer ec2-50-112-196-159.us-west-2.compute.amazonaws.com.
+	This means the twitch website is using the amazonaws as server and this ip address point to that domain name.
+	
+	TCPDUMP OF THE PTR query:
+
+IP 172.31.3.139.50765 > 199.253.183.183.53: 35324% [1au] PTR? 159.196.112.50.in-addr.arpa. (56)
+IP 199.253.183.183.53 > 172.31.3.139.50765: 35324- 0/8/1 (387)
+IP 172.31.3.139.39704 > 199.212.0.63.53: 5175% [1au] PTR? 159.196.112.50.in-addr.arpa. (56)
+IP 199.212.0.63.53 > 172.31.3.139.39704: 5175- 0/7/1 (398)
+IP 172.31.3.139.8989 > 192.12.94.30.53: 39097% [1au] A? x2.amazonaws.com. (45)
+IP 172.31.3.139.28270 > 192.12.94.30.53: 42727% [1au] AAAA? x2.amazonaws.com. (45)
+IP 172.31.3.139.2008 > 192.12.94.30.53: 31666% [1au] A? x1.amazonaws.com. (45)
+IP 172.31.3.139.49778 > 192.12.94.30.53: 64354% [1au] AAAA? x1.amazonaws.com. (45)
+IP 192.12.94.30.53 > 172.31.3.139.8989: 39097- 0/8/5 (662)
+IP 192.12.94.30.53 > 172.31.3.139.28270: 42727- 0/8/5 (662)
+IP 172.31.3.139.45813 > 199.19.57.1.53: 18487% [1au] A? x3.amazonaws.org. (45)
+IP 172.31.3.139.18073 > 199.19.57.1.53: 45745% [1au] AAAA? x3.amazonaws.org. (45)
+IP 192.12.94.30.53 > 172.31.3.139.2008: 31666- 0/8/5 (662)
+IP 172.31.3.139.1621 > 199.19.57.1.53: 18312% [1au] A? x4.amazonaws.org. (45)
+IP 192.12.94.30.53 > 172.31.3.139.49778: 64354- 0/8/5 (662)
+IP 172.31.3.139.12863 > 199.19.57.1.53: 28232% [1au] AAAA? x4.amazonaws.org. (45)
+IP 172.31.3.139.26052 > 192.12.94.30.53: 56650% [1au] A? pdns1.ultradns.net. (47)
+IP 199.19.57.1.53 > 172.31.3.139.18073: 45745- 0/8/3 (690)
+IP 172.31.3.139.30014 > 192.12.94.30.53: 56276% [1au] AAAA? pdns1.ultradns.net. (47)
+IP 199.19.57.1.53 > 172.31.3.139.45813: 18487- 0/8/3 (690)
+IP 199.19.57.1.53 > 172.31.3.139.12863: 28232- 0/8/3 (690)
+IP 199.19.57.1.53 > 172.31.3.139.1621: 18312- 0/8/3 (690)
+IP 192.12.94.30.53 > 172.31.3.139.26052: 56650- 0/14/5 (923)
+IP 172.31.3.139.47128 > 156.154.64.10.53: 24508% [1au] A? x2.amazonaws.com. (45)
+IP 192.12.94.30.53 > 172.31.3.139.30014: 56276- 0/14/5 (923)
+IP 172.31.3.139.30431 > 156.154.64.10.53: 47462% [1au] AAAA? x2.amazonaws.com. (45)
+IP 172.31.3.139.61020 > 156.154.64.10.53: 10787% [1au] A? x1.amazonaws.com. (45)
+IP 172.31.3.139.57423 > 156.154.64.10.53: 30394% [1au] AAAA? x1.amazonaws.com. (45)
+IP 172.31.3.139.31291 > 199.7.68.1.53: 26271% [1au] AAAA? x3.amazonaws.org. (45)
+IP 172.31.3.139.28762 > 199.7.68.1.53: 305% [1au] A? x3.amazonaws.org. (45)
+IP 172.31.3.139.35843 > 162.88.61.21.53: 21190% [1au] A? ns1.p31.dynect.net. (47)
+IP 172.31.3.139.24542 > 162.88.61.21.53: 41474% [1au] AAAA? ns1.p31.dynect.net. (47)
+IP 172.31.3.139.35855 > 162.88.61.21.53: 33215% [1au] A? ns2.p31.dynect.net. (47)
+IP 172.31.3.139.15579 > 162.88.61.21.53: 49410% [1au] AAAA? ns2.p31.dynect.net. (47)
+IP 172.31.3.139.34516 > 199.7.68.1.53: 29100% [1au] AAAA? x4.amazonaws.org. (45)
+IP 172.31.3.139.58215 > 199.7.68.1.53: 6130% [1au] A? x4.amazonaws.org. (45)
+IP 162.88.61.21.53 > 172.31.3.139.15579: 49410*- 0/1/1 (131)
+IP 162.88.61.21.53 > 172.31.3.139.35843: 21190*- 1/0/1 A 208.78.70.31 (63)
+IP 162.88.61.21.53 > 172.31.3.139.24542: 41474*- 1/0/1 AAAA 2001:500:90:1::31 (75)
+IP 172.31.3.139.44062 > 156.154.65.196.53: 10432% [1au] A? pdns1.ultradns.net. (47)
+IP 162.88.61.21.53 > 172.31.3.139.35855: 33215*- 1/0/1 A 204.13.250.31 (63)
+IP 172.31.3.139.15890 > 156.154.65.196.53: 34584% [1au] AAAA? pdns1.ultradns.net. (47)
+IP 172.31.3.139.35121 > 199.7.83.42.53: 30506% [1au] A? ari.beta.aridns.net.au. (51)
+IP 172.31.3.139.27431 > 199.7.83.42.53: 44137% [1au] AAAA? ari.beta.aridns.net.au. (51)
+IP 172.31.3.139.5845 > 199.7.83.42.53: 25147% [1au] A? ari.alpha.aridns.net.au. (52)
+IP 172.31.3.139.62869 > 199.7.83.42.53: 24509% [1au] AAAA? ari.alpha.aridns.net.au. (52)
+IP 172.31.3.139.56961 > 199.249.120.1.53: 18095% [1au] A? pdns196.ultradns.org. (49)
+IP 172.31.3.139.15644 > 199.7.83.42.53: 11614% [1au] A? ari.delta.aridns.net.au. (52)
+IP 199.7.83.42.53 > 172.31.3.139.35121: 30506- 0/11/16 (874)
+IP 172.31.3.139.34498 > 199.7.83.42.53: 53323% [1au] AAAA? ari.delta.aridns.net.au. (52)
+IP 199.7.83.42.53 > 172.31.3.139.27431: 44137- 0/11/16 (874)
+IP 172.31.3.139.44367 > 199.7.83.42.53: 61363% [1au] A? ari.gamma.aridns.net.au. (52)
+IP 199.249.120.1.53 > 172.31.3.139.56961: 18095- 0/14/3 (873)
+IP 199.7.83.42.53 > 172.31.3.139.5845: 25147- 0/11/16 (875)
+IP 199.7.83.42.53 > 172.31.3.139.62869: 24509- 0/11/16 (875)
+IP 172.31.3.139.36734 > 199.7.83.42.53: 62879% [1au] AAAA? ari.gamma.aridns.net.au. (52)
+IP 199.7.83.42.53 > 172.31.3.139.15644: 11614- 0/11/16 (875)
+IP 172.31.3.139.30222 > 213.248.220.1.53: 50790% [1au] A? pdns196.ultradns.co.uk. (51)
+IP 199.7.83.42.53 > 172.31.3.139.34498: 53323- 0/11/16 (875)
+IP 156.154.64.10.53 > 172.31.3.139.47128: 24508*- 1/4/1 A 156.154.65.10 (129)
+IP 172.31.3.139.48178 > 213.248.220.1.53: 49400% [1au] AAAA? pdns196.ultradns.co.uk. (51)
+IP 156.154.64.10.53 > 172.31.3.139.30431: 47462*- 0/1/1 (117)
+IP 156.154.64.10.53 > 172.31.3.139.61020: 10787*- 1/4/1 A 156.154.64.10 (129)
+IP 199.7.83.42.53 > 172.31.3.139.44367: 61363- 0/11/16 (875)
+IP 172.31.3.139.3077 > 199.7.83.42.53: 7631% [1au] A? pdns196.ultradns.biz. (49)
+IP 156.154.64.10.53 > 172.31.3.139.57423: 30394*- 0/1/1 (117)
+IP 199.7.83.42.53 > 172.31.3.139.36734: 62879- 0/11/16 (875)
+IP 172.31.3.139.34749 > 199.7.83.42.53: 8180% [1au] AAAA? pdns196.ultradns.biz. (49)
+IP 172.31.3.139.4629 > 192.33.14.30.53: 12414% [1au] A? pdns196.ultradns.com. (49)
+IP 172.31.3.139.54806 > 192.33.14.30.53: 24283% [1au] AAAA? pdns196.ultradns.com. (49)
+IP 199.7.83.42.53 > 172.31.3.139.3077: 7631- 0/9/10 (701)
+IP 172.31.3.139.20832 > 199.7.83.42.53: 9621% [1au] NS? . (28)
+IP 199.7.83.42.53 > 172.31.3.139.34749: 8180- 0/9/10 (701)
+IP 172.31.3.139.58214 > 199.249.120.1.53: 19945% [1au] AAAA? pdns196.ultradns.org. (49)
+IP 199.7.83.42.53 > 172.31.3.139.20832: 9621*- 14/0/27 NS a.root-servers.net., NS b.root-servers.net., NS c.root-servers.net., NS d.root-servers.net., NS e.root-servers.net., NS f.root-servers.net., NS g.root-servers.net., NS h.root-servers.net., NS i.root-servers.net., NS j.root-servers.net., NS k.root-servers.net., NS l.root-servers.net., NS m.root-servers.net., RRSIG (1097)
+IP 199.249.120.1.53 > 172.31.3.139.58214: 19945- 0/14/3 (873)
+IP 172.31.3.139.56000 > 156.154.126.65.53: 40391% [1au] AAAA? pdns196.ultradns.biz. (49)
+IP 156.154.65.196.53 > 172.31.3.139.44062: 10432*- 1/10/1 A 204.74.108.1 (366)
+IP 156.154.65.196.53 > 172.31.3.139.15890: 34584*- 1/10/1 AAAA 2001:502:f3ff::1 (378)
+IP 199.7.68.1.53 > 172.31.3.139.31291: 26271*- 0/1/1 (116)
+IP 199.7.68.1.53 > 172.31.3.139.28762: 305*- 1/4/1 A 208.78.71.31 (169)
+IP 192.33.14.30.53 > 172.31.3.139.4629: 12414- 0/14/5 (917)
+IP 192.33.14.30.53 > 172.31.3.139.54806: 24283- 0/14/5 (917)
+IP 199.7.68.1.53 > 172.31.3.139.34516: 29100*- 0/1/1 (116)
+IP 199.7.68.1.53 > 172.31.3.139.58215: 6130*- 1/4/1 A 204.13.251.31 (169)
+IP 156.154.126.65.53 > 172.31.3.139.56000: 40391- 0/12/3 (604)
+IP 213.248.220.1.53 > 172.31.3.139.48178: 49400- 0/14/3 (911)
+IP 213.248.220.1.53 > 172.31.3.139.30222: 50790- 0/14/3 (911)
+IP 172.31.3.139.5045 > 204.74.108.1.53: 38099% [1au] PTR? 159.196.112.50.in-addr.arpa. (56)
+IP 204.74.108.1.53 > 172.31.3.139.5045: 38099*- 1/5/1 PTR ec2-50-112-196-159.us-west-2.compute.amazonaws.com. (233)
+IP 172.31.3.139.37759 > 192.33.4.12.53: 6802% [1au] DS? 50.in-addr.arpa. (44)
+IP 172.31.3.139.27741 > 192.33.4.12.53: 48204% [1au] NS? . (28)
+IP 192.33.4.12.53 > 172.31.3.139.37759: 6802- 0/10/13 (728)
+IP 192.33.4.12.53 > 172.31.3.139.27741: 48204*- 14/0/27 NS g.root-servers.net., NS e.root-servers.net., NS i.root-servers.net., NS m.root-servers.net., NS l.root-servers.net., NS f.root-servers.net., NS k.root-servers.net., NS j.root-servers.net., NS b.root-servers.net., NS c.root-servers.net., NS d.root-servers.net., NS h.root-servers.net., NS a.root-servers.net., RRSIG (1097)
+IP 172.31.3.139.29771 > 199.212.0.73.53: 16381% [1au] DS? 50.in-addr.arpa. (44)
+IP 199.212.0.73.53 > 172.31.3.139.29771: 16381*- 2/0/1 DS, RRSIG (255)
+IP 172.31.3.139.13462 > 199.212.0.73.53: 32602% [1au] DS? 112.50.in-addr.arpa. (48)
+IP 199.212.0.73.53 > 172.31.3.139.13462: 32602- 0/8/1 (379)
+IP 172.31.3.139.27141 > 199.212.0.63.53: 7833% [1au] DS? 112.50.in-addr.arpa. (48)
+IP 199.212.0.63.53 > 172.31.3.139.27141: 7833*- 0/4/1 (493)
+IP 172.31.3.139.11063 > 192.82.134.30.53: 39558% [1au] DNSKEY? 50.in-addr.arpa. (44)
+IP 192.82.134.30.53 > 172.31.3.139.11063: 39558*- 5/0/1 DNSKEY, DNSKEY, DNSKEY, RRSIG, RRSIG (1098)
+	
+	The name server that we are communicating to is 199.253.183.183, this is the server of iana.org.
+
+[Summary] 
+I leaned about how the DNS work and how the domain name is resolve by the DNS.The DNS amplification attack is quite amazing, it shows us how vulnerable the network is.
+ 
+
+
+
+

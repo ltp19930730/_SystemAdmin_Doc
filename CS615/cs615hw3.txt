@@ -1,0 +1,245 @@
+﻿HW#3: Package management basics
+Name: Tianpei Luo Cwid: 10408917
+First of all, run the Fedora instance on ec2.
+aws ec2 run-instances --key-name devenv-key --image-id ami-0187f76b --instance-type t1.micro
+
+
+Binary packages:
+In this instance, we need to use the native package manager in Fedora OS which is called “dnf”. “dnf” is the next upcoming major version of Yum, a package manager for RPM-based Linux distributions.
+Connect to this instance and look up the detail of the package manager “DNF”:
+man dnf 
+
+
+If you want to know all the RPM package that have been installed, use the command 
+dnf list installed
+
+
+If you want to see all the RPM package (which include the one that installed already):
+dnf list
+
+
+If you want to look up some specific package, you can use the search tool that provide by the package manager. Eg: search the package about the nginx.
+dnf search nginx
+
+
+output:
+=========N/S Matched: nginx =======================================
+nginx.x86_64 : A high performance web server and reverse proxy server
+collectd-nginx.x86_64 : Nginx plugin for collectd
+nginx-mimetypes.noarch : MIME type mappings for nginx
+owncloud-nginx.noarch : Nginx integration for ownCloud
+nginx-filesystem.noarch : The basic directory layout for the Nginx server
+munin-nginx.noarch : Network-wide graphing framework (cgi files for nginx)
+pcp-pmda-nginx.x86_64 : Performance Co-Pilot (PCP) metrics for the Nginx Webserver
+
+
+You could also  look up the detail information about some certain package:
+dnf info nginx
+
+
+output:
+Last metadata expiration check performed 3 days, 21:50:29 ago on Mon Feb 13 22:20:09 2017.
+Available Packages
+Name        : nginx
+Arch        : x86_64
+Epoch       : 1
+Version     : 1.8.1
+Release     : 3.fc23
+Size        : 536 k
+Repo        : updates
+Summary     : A high performance web server and reverse proxy server
+URL         : http://nginx.org/
+License     : BSD
+Description : Nginx is a web server and a reverse proxy server for HTTP, SMTP, POP3 and
+            : IMAP protocols, with a strong focus on high concurrency, performance and low
+            : memory usage.
+
+
+Now we could try to install the package, typing the command:
+sudo dnf install nginx
+
+
+this will show all the dependencies that need to install.
+Dependencies resolved.
+==============================================================================================================================================================================================================================================
+ Package                                                            Arch                                              Version                                                        Repository                                          Size
+==============================================================================================================================================================================================================================================
+Installing:
+ aajohan-comfortaa-fonts                                            noarch                                            2.004-5.fc23                                                   fedora                                             151 k
+ fontconfig                                                         x86_64                                            2.11.94-5.fc23                                                 updates                                            242 k
+ fontpackages-filesystem                                            noarch                                            1.44-14.fc23                                                   fedora                                              15 k
+ gd                                                                 x86_64                                            2.1.1-10.fc23                                                  updates                                            146 k
+ gperftools-libs                                                    x86_64                                            2.4-5.fc23                                                     fedora                                             273 k
+ jbigkit-libs                                                       x86_64                                            2.1-4.fc23                                                     fedora                                              51 k
+ libX11                                                             x86_64                                            1.6.3-2.fc23                                                   fedora                                             608 k
+ libX11-common                                                      noarch                                            1.6.3-2.fc23                                                   fedora                                             166 k
+ libXau                                                             x86_64                                            1.0.8-5.fc23                                                   fedora                                              33 k
+ libXpm                                                             x86_64                                            3.5.11-4.fc23                                                  fedora                                              54 k
+ libjpeg-turbo                                                      x86_64                                            1.4.1-2.fc23                                                   fedora                                             147 k
+ libtiff                                                            x86_64                                            4.0.4-1.fc23                                                   fedora                                             173 k
+ libunwind                                                          x86_64                                            1.1-10.fc23                                                    fedora                                              64 k
+ libvpx                                                             x86_64                                            1.4.0-6.fc23                                                   updates                                            618 k
+ libxcb                                                             x86_64                                            1.11.1-1.fc23                                                  updates                                            192 k
+ libxslt                                                            x86_64                                            1.1.28-11.fc23                                                 fedora                                             246 k
+ make                                                               x86_64                                            1:4.0-5.1.fc23                                                 fedora                                             449 k
+ nginx                                                              x86_64                                            1:1.8.1-3.fc23                                                 updates                                            536 k
+ nginx-filesystem                                                   noarch                                            1:1.8.1-3.fc23                                                 updates                                             20 k
+ nginx-mimetypes                                                    noarch                                            2.1.45-1.fc23                                                  fedora                                              26 k
+ openssl                                                            x86_64                                            1:1.0.2d-2.fc23                                                fedora                                             511 k
+ perl                                                               x86_64                                            4:5.22.2-355.fc23                                              updates                                            6.9 M
+ perl-Carp                                                          noarch                                            1.38-1.fc23                                                    updates                                             29 k
+ perl-Encode                                                        x86_64                                            3:2.80-7.fc23                                                  updates                                            1.5 M
+ perl-Exporter                                                      noarch                                            5.72-347.fc23                                                  fedora                                              33 k
+ perl-File-Path                                                     noarch                                            2.09-347.fc23                                                  fedora                                              31 k
+ perl-File-Temp                                                     noarch                                            0.23.04-346.fc23                                               fedora                                              61 k
+ perl-Getopt-Long                                                   noarch                                            2.49.1-1.fc23                                                  updates                                             62 k
+ perl-HTTP-Tiny                                                     noarch                                            0.056-4.fc23                                                   updates                                             53 k
+ perl-MIME-Base64                                                   x86_64                                            3.15-348.fc23                                                  fedora                                              29 k
+ perl-PathTools                                                     x86_64                                            3.62-2.fc23                                                    updates                                             88 k
+ perl-Pod-Escapes                                                   noarch                                            1:1.07-348.fc23                                                fedora                                              19 k
+ perl-Pod-Perldoc                                                   noarch                                            3.26-1.fc23                                                    updates                                             86 k
+ perl-Pod-Simple                                                    noarch                                            1:3.31-1.fc23                                                  fedora                                             211 k
+ perl-Pod-Usage                                                     noarch                                            4:1.67-3.fc23                                                  fedora                                              33 k
+ perl-Scalar-List-Utils                                             x86_64                                            2:1.43-1.fc23                                                  updates                                             62 k
+ perl-Socket                                                        x86_64                                            3:2.024-1.fc23                                                 updates                                             56 k
+ perl-Storable                                                      x86_64                                            1:2.53-347.fc23                                                updates                                             84 k
+ perl-Term-ANSIColor                                                noarch                                            4.03-346.fc23                                                  fedora                                              45 k
+ perl-Term-Cap                                                      noarch                                            1.17-1.fc23                                                    fedora                                              22 k
+ perl-Text-ParseWords                                               noarch                                            3.30-346.fc23                                                  fedora                                              17 k
+ perl-Text-Tabs+Wrap                                                noarch                                            2013.0523-346.fc23                                             fedora                                              23 k
+ perl-Time-HiRes                                                    x86_64                                            1.9728-1.fc23                                                  updates                                             50 k
+ perl-Time-Local                                                    noarch                                            1:1.250-1.fc23                                                 updates                                             30 k
+ perl-Unicode-Normalize                                             x86_64                                            1.24-1.fc23                                                    updates                                             80 k
+ perl-constant                                                      noarch                                            1.33-347.fc23                                                  fedora                                              24 k
+ perl-libs                                                          x86_64                                            4:5.22.2-355.fc23                                              updates                                            823 k
+ perl-macros                                                        x86_64                                            4:5.22.2-355.fc23                                              updates                                             57 k
+ perl-parent                                                        noarch                                            1:0.234-3.fc23                                                 fedora                                              18 k
+ perl-podlators                                                     noarch                                            2.5.3-347.fc23                                                 fedora                                             112 k
+ perl-threads                                                       x86_64                                            1:2.02-2.fc23                                                  fedora                                              58 k
+ perl-threads-shared                                                x86_64                                            1.48-346.fc23                                                  fedora                                              44 k
+
+
+Transaction Summary
+==============================================================================================================================================================================================================================================
+Install  52 Packages
+
+
+Total download size: 15 M
+Installed size: 45 M
+How many packages were added?
+There are 52 packages that need to be installed.
+How many new files were added?
+In order to find those file which is newly added, we could use the command:
+find /usr -type f -ctime 0
+this command means to search all the file which is change within 24 hours under the directory /usr and print them out.
+
+
+find /usr -type f -ctime 0 | awk 'END{print NR}'
+or find /usr -type f -ctime 0 | wc -l
+this command can help to know how many new files were added.
+output: 1967
+Are all added packages necessary to run the software?
+Yes, all the added packages are necessary to run this software completely. Since this software is depend on these packages.
+Which version of nginx did you end up with?
+Using the command: nginx -V
+nginx version: nginx/1.8.1
+built by gcc 5.3.1 20160406 (Red Hat 5.3.1-6) (GCC) 
+built with OpenSSL 1.0.2h-fips  3 May 2016 (running with OpenSSL 1.0.2d-fips 9 Jul 2015)
+TLS SNI support enabled
+configure arguments: --prefix=/usr/share/nginx --sbin-path=/usr/sbin/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --http-client-body-temp-path=/var/lib/nginx/tmp/client_body --http-proxy-temp-path=/var/lib/nginx/tmp/proxy --http-fastcgi-temp-path=/var/lib/nginx/tmp/fastcgi --http-uwsgi-temp-path=/var/lib/nginx/tmp/uwsgi --http-scgi-temp-path=/var/lib/nginx/tmp/scgi --pid-path=/run/nginx.pid --lock-path=/run/lock/subsys/nginx --user=nginx --group=nginx --with-file-aio --with-ipv6 --with-http_ssl_module --with-http_spdy_module --with-http_realip_module --with-http_addition_module --with-http_xslt_module --with-http_image_filter_module --with-http_geoip_module --with-http_sub_module --with-http_dav_module --with-http_flv_module --with-http_mp4_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_random_index_module --with-http_secure_link_module --with-http_degradation_module --with-http_stub_status_module --with-http_perl_module --with-mail --with-mail_ssl_module --with-pcre --with-pcre-jit --with-google_perftools_module --with-debug --with-cc-opt='-O2 -g -pipe -Wall -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1 -m64 -mtune=generic' --with-ld-opt='-Wl,-z,relro -specs=/usr/lib/rpm/redhat/redhat-hardened-ld -Wl,-E'
+
+
+This will display the version, along with the compiler version and configuration parameters.
+Which directories did the software get installed into?
+Using the command : type nginx or which nginx 
+/usr/sbin/nginx
+ we could find that the binary file was under the directory of /usr/sbin/
+How do you know you didn't get any backdoors installed?
+There are no way to detect the backdoors installed since all of them is just binary code.
+
+
+build manually from source
+
+
+Using the command curl to download the latest source code of nginx :
+curl http://nginx.org/download/nginx-1.11.10.tar.gz > nginx-1.11.10.tar.gz
+
+
+Then we need to unarchive the archiving tar.gz file.
+Using the command: tar zxvf nginx-1.11.10.tar.gz
+
+
+Enter the new directory nginx-1.11.10 and type the command :./configure
+
+
+the output will be:
+checking for OS
+ + Linux 4.2.3-300.fc23.x86_64 x86_64
+checking for C compiler ... not found
+
+
+There are no C compiler in this instance, so we need to install it first:
+sudo dnf group install “C Development Tools and Libraries”  
+After install the c compiler, it shows the result:
+./configure: error: the HTTP rewrite module requires the PCRE library.
+You can either disable the module by using --without-http_rewrite_module
+option, or install the PCRE library into the system, or build the PCRE library
+statically from the source with nginx by using --with-pcre=<path> option.
+
+
+we need to install the PCRE library: sudo dnf install pcre-devel
+now we could do ./configure again.
+
+
+./configure: error: the HTTP gzip module requires the zlib library.
+You can either disable the module by using --without-http_gzip_module
+option, or install the zlib library into the system, or build the zlib library
+statically from the source with nginx by using --with-zlib=<path> option.
+
+
+Install the zlib library : sudo dnf install zlib-devel
+
+
+the output finally show:
+Configuration summary
+  + using system PCRE library
+  + OpenSSL library is not used
+  + using system zlib library
+
+
+  nginx path prefix: "/usr/local/nginx"
+  nginx binary file: "/usr/local/nginx/sbin/nginx"
+  nginx modules path: "/usr/local/nginx/modules"
+  nginx configuration prefix: "/usr/local/nginx/conf"
+  nginx configuration file: "/usr/local/nginx/conf/nginx.conf"
+  nginx pid file: "/usr/local/nginx/logs/nginx.pid"
+  nginx error log file: "/usr/local/nginx/logs/error.log"
+  nginx http access log file: "/usr/local/nginx/logs/access.log"
+  nginx http client request body temporary files: "client_body_temp"
+  nginx http proxy temporary files: "proxy_temp"
+  nginx http fastcgi temporary files: "fastcgi_temp"
+  nginx http uwsgi temporary files: "uwsgi_temp"
+  nginx http scgi temporary files: "scgi_temp"
+
+
+then type the command:
+make
+sudo make install
+What additional software did you have to install?
+C compiler, pcre-lib and zlib.
+How did you install these pre-requisites? Can you do this without using any package manager at all (i.e. everything from source)?
+I install these pre-requisites using the dnf package manager. I could, but it is kind of complicated.
+How many new files were added?
+Using the command find,we could find there are 6140 new files.
+
+
+Did this software use any of the added packages you had installed in the previous step? Why / why not?
+Of course yes, C compiler is the most important thing to build the source code to the binary one. The HTTP rewrite module requires the PCRE library and the HTTP gzip module requires the zlib library. 
+Does this version of the software have feature parity with the binary package above? Are there some features enabled in one version that are not enabled in the other?
+Yes, only part of the software is updated.May be yes, since some feature is depends on some new lib but the old one is not.
+
+
+Which directories did the software get installed into?
+/usr/local/nginx
+How do you know you didn't get any backdoors installed?
+It is still hard to know that because we can only know that if we check all the source code line by line.

@@ -1,0 +1,337 @@
+Homework 1 for CS615
+Name:Tianpei Lup
+
+Document for setup AWS ec2 command line interface environment and create an instance using the command line in MacOS
+
+
+1.Install pip.( If you don’t have python, you need to install python first.)
+sudo easy_install pip 
+
+
+2.Install awscli
+OS X El Capitan ships with six 1.4.1 installed already and when it attempts to uninstall it (because awscli depends on botocore, botocore depends on python-dateutil, and python-dateutil depends on six >= 1.5) it doesn't have permission to do so because System Integrity Protection doesn't allow even root to modify those directories.Use the --ignore -installed option to fix it.
+sudo pip install awscli --ignore -installed six
+
+
+otherwise just type:
+sudo pip install awscli
+
+
+
+
+3.Enable command completion in bash 
+complete -C ‘/usr/local/bin/aws_completer’ aws
+
+
+4.Configure the CLI
+aws configure
+(The AWS CLI will prompt for the following information:AWS Access Key ID,AWS Secret Access Key, region name and output format.)
+
+
+5.Create a security group
+aws ec2 create-security-group --group-name devenv-sg --description “security group for development environment in EC2”
+use this command to create a security group which name is devenv-sg and the description is “security group for development environment in EC2”.
+output :
+
+
+{
+    "GroupId": "sg-5e01b522"
+}
+
+
+Just remember this groupid for the later command line.
+
+
+
+
+6. Add one or more ingress rules to a security group.
+aws ec2 authorize-security-group-ingress --group-name devenv-sg --protocol tcp --port 22 --cidr 0.0.0.0/0
+use this command to see the rules of security groups:
+aws ec2 describe-security-groups
+
+
+7.Create a key-pair which allows to connect to the instance.
+aws ec2 create-key-pair --key-name devenv-key --query 'KeyMaterial' --output text > devenv-key.pem
+this command will create a key which name is devenv-key and query the key material from the output and store the key in a file name devenv-key.pem.
+
+
+8.Ready to launch to an instance and connect to it.
+1. First, you need to know which kind of operating system that you want to create and the image id of the specific OS (Amazon Machine image that Amazon EC2 use to bootstrap the instance). You can find the ami id by using the command : aws ec2 describe-image 
+        Use a filter to filt the name with the ami that you want to search.
+        For example, you want to search the ami for OmniOS r151020.Type:
+aws ec2 decribe-images --filter “Name=name,Values=’OmniOS r151020*’”
+* is quite important ,because it allows you to search all the ami that related to this prefix string.After that you can find the id in the output which is ami-50ecc847.
+1. Now you can create the instance by using this image id.
+Type the command:                                                                                          aws ec2 run-instances --image-id ami-50ecc847 --security-group-ids sg-5e01b522 --count 1 --instance-type t1.micro --key-name devenv-key 
+1. In this command image id is the option that need to specify which OS you want to create and security group id is the id that you create before.The option of count means you create only one instance and the type of the instance is t1.micro since t2 required a VPC.The name of key-pair is devenv-key which is the same with the key we just create.
+2. Type the command to get the id of the instance:                                aws ec2 describe-instance-status --query 'InstanceStatuses[0].InstanceId'  ----- this will return the id of your instance.
+Instance id :  i-0f44c077722046de6
+1. Get the ip address:                                                                        aws ec2 describe-instances --instance-ids i-0f44c077722046de6 --query 'Reservations[0].Instances[0].PublicIpAddress' --- return an ip address "54.89.198.121”
+2. Change the mode of key pair file:                
+chmod 400 devenv-key.pem
+1. Use the private key and public address to connect to your instance via ssh: ssh -i devenv-key.pem root@54.89.198.121
+
+
+
+
+
+
+
+
+9 .Now you have already log in on the virtual host and should test some basic command .
+1. Display basic system information: uname -a
+        It will display all the information about the system.
+        You could see this result:
+        In OmniOS:
+        SunOS ip-10-152-178-106.ec2.internal 5.11 omnios-r151020-b5b8c75 i86pc 
+        i386 i86xpv
+        In Ubuntu:
+Linux ip-172-31-63-87 4.4.0-53-generic #74-Ubuntu SMP Fri Dec 2 15:59:10 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
+(kernel name, network hostname,kernel-version,kernel-release,machine hardware name)
+
+
+     2)  Display the effective User ID:  whoami
+        In OmniOS: root              In Unbuntu:Ubuntu
+     3)  Display current date : date
+        In OmniOS:        January 27, 2017 04:39:45 PM
+        In Ubuntu:        Sun Jan 29 01:59:43 UTC 2017
+     4)   Display who is logged into the Linux and Unix-like server, and what they are         doing at command execution time : w
+        In OmniOS:        User     tty      login@         idle    JCPU    PCPU what
+root      pts/1  16:28:41      0         0               0         w
+        In ubuntu: 
+ 02:00:33 up 7 min,  1 user,  load average: 0.00, 0.02, 0.00
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+ubuntu   pts/0    100.8.48.226     01:56    1.00s  0.03s  0.00s w
+
+
+     5)  Display information about all network interface: ifconfig -a
+        In OmniOS:
+lo0:flags=2001000849<UP,LOOPBACK,RUNNING,MULTICAST,IPv4,VIRTUAL> mtu 8232 index 1
+inet 127.0.0.1 netmask ff000000 
+xnf0:flags=1004843<UP,BROADCAST,RUNNING,MULTICAST,DHCP,IPv4>1500 index 2
+               inet 172.31.14.58 netmask fffff000 broadcast 172.31.15.255
+                ether a:9d:46:2b:1b:86 
+lo0:flags=2002000849<UP,LOOPBACK,RUNNING,MULTICAST,IPv6,VIRTUAL> mtu 8252 index 1
+                inet6 ::1/128 
+xnf0: flags=20002000840<RUNNING,MULTICAST,IPv6> mtu 1500 index 2
+                inet6 ::/0 
+                ether a:9d:46:2b:1b:86 
+In Ubuntu:
+eth0      Link encap:Ethernet  HWaddr 12:49:05:b9:86:dc  
+          inet addr:172.31.63.87  Bcast:172.31.63.255  Mask:255.255.240.0
+          inet6 addr: fe80::1049:5ff:feb9:86dc/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:9001  Metric:1
+          RX packets:444 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:434 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:59360 (59.3 KB)  TX bytes:57525 (57.5 KB)
+
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:160 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:160 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1 
+          RX bytes:11840 (11.8 KB)  TX bytes:11840 (11.8 KB)
+
+
+6) Display network connections by using the command: netstat -na
+In OmniOS:
+UDP: IPv4
+   Local Address        Remote Address      State
+-------------------- -------------------- ----------
+      *.68                                Idle
+      *.546                               Idle
+172.31.14.58.68                           Idle
+      *.111                               Idle
+      *.*                                 Unbound
+      *.40130                             Idle
+      *.111                               Idle
+      *.*                                 Unbound
+      *.57043                             Idle
+      *.*                                 Unbound
+
+
+UDP: IPv6
+   Local Address                     Remote Address                   State      If
+--------------------------------- --------------------------------- ---------- -----
+      *.546                                                         Idle       
+      *.111                                                         Idle       
+      *.*                                                           Unbound    
+      *.40130                                                       Idle       
+      *.*                                                           Unbound    
+
+
+TCP: IPv4
+   Local Address        Remote Address    Swind Send-Q Rwind Recv-Q    State
+-------------------- -------------------- ----- ------ ----- ------ -----------
+127.0.0.1.4999             *.*                0      0 128000      0 LISTEN
+      *.111                *.*                0      0 128000      0 LISTEN
+      *.*                  *.*                0      0 128000      0 IDLE
+      *.111                *.*                0      0 128000      0 LISTEN
+      *.*                  *.*                0      0 128000      0 IDLE
+      *.46503              *.*                0      0 128000      0 LISTEN
+      *.44118              *.*                0      0 128000      0 LISTEN
+      *.22                 *.* pd               0      0 128000      0 LISTEN
+172.31.14.58.22      100.8.48.226.57458   131072     35 128872      0 ESTABLISHED
+
+
+TCP: IPv6
+   Local Address                     Remote Address                 Swind Send-Q Rwind Recv-Q   State      If
+--------------------------------- --------------------------------- ----- ------ ----- ------ ----------- -----
+      *.111                             *.*                             0      0 128000      0 LISTEN      
+      *.*                               *.*                             0      0 128000      0 IDLE        
+      *.44118                           *.*                             0      0 128000      0 LISTEN      
+      *.22                              *.*                             0      0 128000      0 LISTEN      
+
+
+Active UNIX domain sockets
+Address  Type          Vnode     Conn  Local Addr      Remote Addr
+ffffff008baa020 dgram      ffffff00a8f89280 0000000 /var/run/in.ndpd_mib                
+ffffff00a8baa3d0 stream-ord ffffff00a8f89480 0000000 /var/run/in.ndpd_ipadm                
+ffffff00a8baa780 stream-ord ffffff00a8e31840 0000000 /var/run/.inetd.uds                
+ffffff00a8baab30 stream-ord 0000000 0000000 /var/run/hald/dbus-N8HYjm2DmL                
+ffffff00a8bbb018 stream-ord 0000000 0000000 /var/run/dbus/system_bus_socket                
+ffffff00a8bbb3c8 stream-ord 0000000 ffffff00a8a2e900                /var/run/dbus/system_bus_socket 
+ffffff00a8bbb778 stream-ord 0000000 ffffff00a8b06380                /var/run/hald/dbus-N8HYjm2DmL 
+ffffff00a8bbbb28 stream-ord 0000000 0000000 /var/run/hald/dbus-N8HYjm2DmL                
+ffffff00a8b65010 stream-ord 0000000 ffffff00a8b06380                /var/run/hald/dbus-N8HYjm2DmL 
+ffffff00a8b653c0 stream-ord 0000000 0000000 /var/run/hald/dbus-BO4VZ2EP6f                
+ffffff00a8b65770 stream-ord 0000000 ffffff00a8b32400                /var/run/hald/dbus-BO4VZ2EP6f 
+ffffff00a8b65b20 stream-ord ffffff00a8b32400 0000000 /var/run/hald/dbus-BO4VZ2EP6f                
+ffffff00a7de0008 stream-ord 0000000 0000000                               
+ffffff00a7de03b8 stream-ord 0000000 0000000                               
+ffffff00a7de0768 stream-ord ffffff00a8b06380 0000000 /var/run/hald/dbus-N8HYjm2DmL                
+ffffff00a7de0b18 stream-ord ffffff00a8a2e900 0000000 /var/run/dbus/system_bus_socket 
+
+
+
+
+In Ubuntu:
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN     
+tcp        0    316 172.31.63.87:22         100.8.48.226:58961      ESTABLISHED
+tcp6       0      0 :::22                   :::*                    LISTEN     
+udp        0      0 0.0.0.0:68              0.0.0.0:*                          
+Active UNIX domain sockets (servers and established)
+Proto RefCnt Flags       Type       State         I-Node   Path
+unix  2      [ ACC ]     STREAM     LISTENING     8711     /run/systemd/private
+unix  2      [ ]         DGRAM                    16799    /run/user/1000/systemd/notify
+unix  2      [ ACC ]     STREAM     LISTENING     16800    /run/user/1000/systemd/private
+unix  2      [ ACC ]     SEQPACKET  LISTENING     8723     /run/udev/control
+unix  10     [ ]         DGRAM                    8716     /run/systemd/journal/dev-log
+unix  2      [ ]         DGRAM                    8725     /run/systemd/journal/syslog
+unix  2      [ ACC ]     STREAM     LISTENING     8726     /run/lvm/lvmpolld.socket
+unix  2      [ ACC ]     STREAM     LISTENING     8730     /run/systemd/journal/stdout
+unix  7      [ ]         DGRAM                    8731     /run/systemd/journal/socket
+unix  2      [ ACC ]     STREAM     LISTENING     9110     /run/lvm/lvmetad.socket
+unix  2      [ ACC ]     STREAM     LISTENING     12918    /run/snapd.socket
+unix  2      [ ACC ]     STREAM     LISTENING     12919    /run/snapd-snap.socket
+unix  2      [ ACC ]     STREAM     LISTENING     12924    /run/acpid.socket
+unix  2      [ ACC ]     STREAM     LISTENING     12926    /run/uuidd/request
+unix  2      [ ACC ]     STREAM     LISTENING     12909    /var/run/dbus/system_bus_socket
+unix  2      [ ACC ]     STREAM     LISTENING     13015    @ISCSIADM_ABSTRACT_NAMESPACE
+unix  2      [ ACC ]     STREAM     LISTENING     12925    /var/lib/lxd/unix.socket
+unix  3      [ ]         DGRAM                    8710     /run/systemd/notify
+unix  3      [ ]         STREAM     CONNECTED     15300    /run/systemd/journal/stdout
+unix  3      [ ]         STREAM     CONNECTED     14082    
+unix  3      [ ]         STREAM     CONNECTED     15490    
+unix  3      [ ]         STREAM     CONNECTED     10870    
+unix  3      [ ]         STREAM     CONNECTED     15294    /run/systemd/journal/stdout
+unix  3      [ ]         DGRAM                    10166    
+unix  3      [ ]         DGRAM                    10167    
+unix  3      [ ]         STREAM     CONNECTED     14139    
+unix  2      [ ]         DGRAM                    16764    
+unix  3      [ ]         STREAM     CONNECTED     10872    /run/systemd/journal/stdout
+unix  3      [ ]         STREAM     CONNECTED     15491    /run/systemd/journal/stdout
+unix  3      [ ]         STREAM     CONNECTED     15276    /run/systemd/journal/stdout
+unix  2      [ ]         DGRAM                    13880    
+unix  3      [ ]         STREAM     CONNECTED     13449    
+unix  2      [ ]         DGRAM                    9305     
+unix  3      [ ]         STREAM     CONNECTED     13209    
+unix  3      [ ]         STREAM     CONNECTED     15256    /run/systemd/journal/stdout
+unix  3      [ ]         DGRAM                    10896    
+unix  2      [ ]         DGRAM                    13280    
+unix  2      [ ]         DGRAM                    16761    
+unix  3      [ ]         STREAM     CONNECTED     13322    /var/run/dbus/system_bus_socket
+unix  2      [ ]         DGRAM                    14509    
+unix  3      [ ]         STREAM     CONNECTED     16827    
+unix  3      [ ]         STREAM     CONNECTED     13279    
+unix  3      [ ]         STREAM     CONNECTED     15268    /run/systemd/journal/stdout
+unix  3      [ ]         STREAM     CONNECTED     13278    
+unix  2      [ ]         DGRAM                    10891    
+unix  3      [ ]         STREAM     CONNECTED     14585    /var/run/dbus/system_bus_socket
+unix  3      [ ]         STREAM     CONNECTED     16775    /run/systemd/journal/stdout
+unix  2      [ ]         DGRAM                    12135    
+unix  3      [ ]         DGRAM                    10895    
+unix  2      [ ]         DGRAM                    9097     
+unix  3      [ ]         DGRAM                    10898    
+unix  3      [ ]         STREAM     CONNECTED     13147    
+unix  3      [ ]         STREAM     CONNECTED     14345    /var/run/dbus/system_bus_socket
+unix  3      [ ]         STREAM     CONNECTED     15250    /run/systemd/journal/stdout
+unix  3      [ ]         STREAM     CONNECTED     14344    
+unix  3      [ ]         STREAM     CONNECTED     13321    
+unix  3      [ ]         STREAM     CONNECTED     13320    
+unix  3      [ ]         STREAM     CONNECTED     14584    
+unix  3      [ ]         STREAM     CONNECTED     9552     /run/systemd/journal/stdout
+unix  2      [ ]         DGRAM                    13317    
+unix  3      [ ]         STREAM     CONNECTED     16826    
+unix  3      [ ]         STREAM     CONNECTED     9551     
+unix  3      [ ]         STREAM     CONNECTED     10137    
+unix  3      [ ]         STREAM     CONNECTED     16755    
+unix  2      [ ]         DGRAM                    13020    
+unix  3      [ ]         DGRAM                    10897    
+unix  3      [ ]         STREAM     CONNECTED     10138    /run/systemd/journal/stdout
+unix  2      [ ]         DGRAM                    16682    
+unix  3      [ ]         STREAM     CONNECTED     13323    /var/run/dbus/system_bus_socket
+unix  2      [ ]         DGRAM                    13014    
+unix  3      [ ]         STREAM     CONNECTED     13303    
+unix  2      [ ]         DGRAM                    10146    
+
+
+
+
+7) Display the partition table,currently mounted filesystems,disk space: df
+In OmniOS:
+Filesystem                    1K-blocks   Used Available Use% Mounted on
+.../omnios-r151020-1   7519627     884687   6634941  12%   /
+swap                             281760      292          281468   1%     /etc/svc/volatile
+swap                             281468      0              281468   0%     /tmp
+swap                             281500     32             281468   1%     /var/run
+syspool                       6634971     30           6634941   1%     /syspool
+
+
+In Ubuntu:
+Filesystem     1K-blocks   Used     Available      Use%         Mounted on
+udev                 501248      0            501248           0%          /dev
+tmpfs               101444      4388         97056           5%          /run
+/dev/xvda1       8117828 938316    6744236         13%          /
+tmpfs               507204      0             507204           0%          /dev/shm
+tmpfs               5120          0                 5120           0%          /run/lock
+tmpfs               507204      0             507204           0%          /sys/fs/cgroup
+tmpfs               101448      0             101448           0%          /run/user/1000
+
+
+
+
+10. Finally, you need to terminate the instance by using the instance id:
+aws ec2 terminate-instances --instance-ids i-0f44c077722046de6
+it will return:
+{
+    "TerminatingInstances": [
+        {
+            "InstanceId": "i-0f44c077722046de6", 
+            "CurrentState": {
+                "Code": 32, 
+                "Name": "shutting-down"
+            }, 
+            "PreviousState": {
+                "Code": 16, 
+                "Name": "running"
+            }
+        }
+    ]
+}

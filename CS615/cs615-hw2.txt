@@ -1,0 +1,174 @@
+CS615                                        Tianpei Luo                                         ID:10408917
+Filesystem Creation Documentation
+
+
+Using script -r to record the script.
+
+
+1.Fist we need to create a instance in FreeBSD:
+You can store this alias to save your typing:
+alias instance='aws ec2 run-instances --key-name devenv-key --image-id'
+then image id of FreeBSD 10.2 is ami-f709a29c;
+instance ami-f709a29c --instance-type t2.micro
+
+
+2.Get the ip address 
+aws ec2 describe-instances --query 'Reservations[0].Instances[0].PublicIpAddress'
+output : “54.209.169.182”
+!!! the volume should be in the same availability zone as instance.
+
+
+3.Find out the availability-zone of this instance:
+the volume should be in the same availability zone with instance.
+aws ec2 describe-instances --query 'Reservations[0].Instances[0].Placement.AvailabilityZone'
+
+
+4.Create a 1Gbi Volume
+aws ec2 create-volume --size 1 --availability-zone us-east-1d
+remember the volume id: vol-0df674dac8700dd4d
+
+
+5.Get the instance id: 
+aws ec2 describe-instances --query 'Reservations[0].Instances[0].InstanceId'
+output : "i-0bf04996eef2770b7"
+
+
+
+
+6.Attach the volume to instance :
+aws ec2 attach-volume --volume-id vol-0df674dac8700dd4d --instance-id i-0bf04996eef2770b7 --device /dev/sdh
+device name should be follow the rules.
+
+
+7.SSH to the instance that attached with the volume we create.After connection we need to create a new file system to the new disk.
+command : ssh -t {%key%} ec2-user@{ % public IP address%}
+First change to the root mode: su -
+type the command : ls -la /dev/
+we can find that the device name become xbd7 which is not the name we created.
+newfs /dev/{  %the new device of this new disk %}
+type: df -h 
+Filesystem         Size    Used   Avail Capacity  Mounted on
+/dev/gpt/rootfs    9.7G    1.1G    7.8G    13%    /
+devfs              1.0K    1.0K      0B   100%    /dev
+
+
+newfs /dev/xbd7
+we will get the result :
+/dev/xbd7: 1024.0MB (2097152 sectors) block size 32768, fragment size 4096
+        using 4 cylinder groups of 256.03MB, 8193 blks, 32896 inodes.
+super-block backups (for fsck_ffs -b #) at:
+ 192, 524544, 1048896, 1573248
+
+
+8.Create a new directory in the root directory. Eg : mkdir /newdisk
+
+
+9.Then we need mount the new disk device to the directory such as 
+mount /dev/xbd7 /newdisk/
+
+
+
+
+10.use df -h to look at the current partition table.
+Filesystem         Size    Used   Avail Capacity  Mounted on
+/dev/gpt/rootfs    9.7G    1.1G    7.8G    13%    /
+devfs              1.0K    1.0K      0B   100%    /dev
+/dev/xbd7          992M    8.0K    912M     0%    /newdisk
+
+
+we can saw that the new device was mounted on the directory /newdisk.
+enter the new disk and create a new file which name is test and echo “hello world!” into this file.
+touch test
+echo "hello world!" >> test
+
+
+11.After that, we need terminate the instance and the volume to the other instance in the same OS.
+terminate this instance and create another one.
+1. Get the ip address : 54.172.183.215
+2. Get the instance id :i-0a464d8c41828f758
+3. Attach the volume we created before to this instance
+aws ec2 attach-volume --volume-id vol-0df674dac8700dd4d --instance-id i-0a464d8c41828f758 --device /dev/sdh
+
+
+12.Finally,using the command :
+ssh -i ~/.ssh/ec2/devenv-key.pem ec2-user@54.172.183.215
+Connect to this instance
+Create a new directory /newdisk
+we can find the same device name xbd7 and mount it to the /newdisk
+mount /dev/xbd7 /newdisk/
+since we don’t need to create a filesystem for that volume.
+using df  we can see 
+Filesystem      1K-blocks    Used   Avail Capacity  Mounted on
+/dev/gpt/rootfs  10151272 1187008 8152164    13%    /
+devfs                   1       1       0   100%    /dev
+/dev/xbd7         1015324      12  934088     0%    /newdisk
+Enter the newdisk directory we can find the file that we create before.
+The file test is perfectly exist and readable.
+
+
+13.Terminate this instance and try another OS.
+Using the image:ami-0187f76b which is Fedora.
+1. Create instance : instance ami-0187f76b --instance-type t1.micro
+2. Get the instance id : i-0b1f8cf9f68747703
+3. Get the ip address : 54.236.219.128
+4. try to attach the last volume : aws ec2 attach-volume --volume-id vol-0df674dac8700dd4d --instance-id i-0b1f8cf9f68747703 --device /dev/sdh
+5. We can’t attach the volume we created before because they are not in the same availability zone.
+
+
+14.Create another volume which is us-east-1a
+aws ec2 create-volume --size 1 --availability-zone us-east-1a
+get the volume id : vol-04941b942ffdd4d4a
+Now we can attach the volume to this instance
+aws ec2 attach-volume --volume-id vol-04941b942ffdd4d4a --instance-id i-0b1f8cf9f68747703 --device /dev/sdh
+
+
+15.Connect to this instance 
+ssh -i ~/.ssh/ec2/devenv-key.pem fedora@54.236.219.128
+we can find the device name of that volume become :xvdh
+
+
+16.df -h to look at current partition:
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        283M     0  283M   0% /dev
+tmpfs           295M     0  295M   0% /dev/shm
+tmpfs           295M  176K  294M   1% /run
+tmpfs           295M     0  295M   0% /sys/fs/cgroup
+/dev/xvda1      5.9G  494M  5.1G   9% /
+tmpfs            59M     0   59M   0% /run/user/1000
+
+
+17.Create a new file system using the command:
+sudo mkfs /dev/xvdh
+it is different from the freeBSD OS, since it use mkfs to create file system instead of using newfs  and we also need root permission to do this.
+
+
+18.Make a new directory and mount the new disk to that directory.
+sudo mkdir /newdisk
+sudo mount /dev/xvdh /newdisk/
+
+
+19.Now we use df -h again to see the partition table.
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        283M     0  283M   0% /dev
+tmpfs           295M     0  295M   0% /dev/shm
+tmpfs           295M  176K  294M   1% /run
+tmpfs           295M     0  295M   0% /sys/fs/cgroup
+/dev/xvda1      5.9G  494M  5.1G   9% /
+tmpfs            59M     0   59M   0% /run/user/1000
+/dev/xvdh      1008M  1.3M  956M   1% /newdisk
+
+
+20.Enter the new disk,create a test file and echo “hello world!” into the test file.c
+1. sudo touch test
+2. chmod 777 test
+3. echo “hello world!” > test
+21. Stop this instance and create another one in the same OS.
+1. Create instane: instance ami-0187f76b --instance-type t1.micro
+2. Get instance id and ip address: i-069257369db3c7a21   54.144.247.23
+3. attach the volume to this instance aws ec2 attach-volume --volume-id vol-04941b942ffdd4d4a --instance-id i-069257369db3c7a21 --device /dev/sdh
+4. connect to this instance and create a new directory and mount it.
+5. We can find the test file we created in the instance that we shut down just now.
+
+
+Notes: 
+In FreeBSD, we use newfs command to create the new file system. In Fedora, we used newfs command to create the new file system.Both OS used mount command to mount the new disk.When I try to mount the volume that I create in the FreeBSD on the Fedora OS.It show a error message: mount: unknow filesystem type. I think Different OS can use the same file system only if the OS support that specific kind of file system. Otherwise you will get a error message of unknow filesystem type.

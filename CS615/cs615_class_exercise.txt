@@ -1,0 +1,25 @@
+Exercise: adding users
+
+We need to find out the information about current user name, UID, primary group and supplementary group.
+
+Typing the command : id 
+eg:uid=501(teslax) gid=20(staff) groups=20(staff),701(com.apple.sharepoint.group.1),12(everyone),61(localaccounts),79(_appserverusr),80(admin),81(_appserveradm),98(_lpadmin),33(_appstore),100(_lpoperator),204(_developer),395(com.apple.access_ftp),398(com.apple.access_screensharing),399(com.apple.access_ssh)
+
+1. In order to get the user’s login shell , typing the command : echo “$SHELL”
+2. Create the instances in these three instance.
+3. Connect to the first instance (FreeBSD)
+4. Switch to root account to create a new user, by typing the command: su -  and adduser.
+5. Since mac has a lot of group and the instance don’t have any other group is the same with my MacOS. So I only add two supplementary group to my user account which is 1 and 80.
+6. THE login shell for mac is bash, but there are no bash in freeBSD. I choose sh for the login shell.
+7. Switch to the new user account : su teslax
+8. Type command “  id “ to see the current user information.
+uid=501(teslax) gid=20(staff) groups=20(staff),1(daemon),80(www)
+9. We found that 1 is daemon and 80 is www.
+
+OmniOS:
+
+2. Connect to another instance which is OmniOS.
+3. In this OS, the command become “ useradd “ which is different with the freebsd.
+4. Type useradd -u 501 -g 20 -d /home/teslax -s /bin/bash teslax
+Ubuntu:
+Command: sudo adduser teslas
